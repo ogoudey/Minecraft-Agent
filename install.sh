@@ -1,3 +1,0 @@
-xhost +local:root
-git clone https://github.com/minecraft-ros2/minecraft_ros2.git
-# move the files in . to the container somehow...
