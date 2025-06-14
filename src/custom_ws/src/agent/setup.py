@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-        'keys = agent.policy_performer:main',
+        'keys = agent.policy_performer:teleop',
         ],
     },
 )
