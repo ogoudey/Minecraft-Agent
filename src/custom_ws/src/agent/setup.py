@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
         'keys = agent.policy_performer:teleop',
+        'state_former = agent.state_former:main',
         ],
     },
 )
