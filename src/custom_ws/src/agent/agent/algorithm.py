@@ -12,17 +12,20 @@ class RGBPolicy(nn.Module):
             nn.Conv2d(3, 32, 8, 4), nn.ReLU(),
             nn.Conv2d(32, 64, 4, 2), nn.ReLU(),
             nn.Conv2d(64, 64, 3, 1), nn.ReLU(),
-            nn.Flatten(), nn.Linear(64 * 7 * 7, 512), nn.ReLU(),
+            nn.Flatten(), 
+            nn.Linear(64 * 7 * 7, 512), nn.ReLU(),
         )
         self.pi  = nn.Linear(512, n_actions)   # policy head
         self.vf  = nn.Linear(512, 1)           # value head
 
     def forward(self, x):
-        z = self.backbone(x / 255.0)           # x: (B,4,84,84)
+        z = self.backbone(x / 255.0)
         return self.pi(z), self.vf(z).squeeze(-1)
 
     # helper: returns action, log-prob, value
     def act(self, x):
+        if x.ndim == 3: # For non-batched inputs...
+            x = x.unsqueeze(0)  # (1, 3, 84, 84)
         logits, value = self(x)
         dist   = Categorical(logits=logits)
         action = dist.sample()
@@ -32,10 +35,10 @@ class RGBPolicy(nn.Module):
         # turn the buffer into tensors
         obs_b, act_b, logp_b, val_b, rew_b, done_b = map(list, zip(*buffer))
 
-        obs_b   = torch.tensor(obs_b, dtype=torch.float32).to(device)   # (T,C,H,W)
-        act_b   = torch.tensor(act_b).to(device)
-        logp_b  = torch.tensor(logp_b).to(device)
-        val_b   = torch.tensor(val_b).to(device)
+        obs_b   = torch.stack(obs_b).float()   # (T,C,H,W)
+        act_b   = torch.tensor(act_b)
+        logp_b  = torch.tensor(logp_b)
+        val_b   = torch.tensor(val_b)
 
         # GAE-lambda advantage
         returns = []
@@ -50,8 +53,8 @@ class RGBPolicy(nn.Module):
             next_val = v
             returns.insert(0, next_adv + v)
 
-        adv     = torch.tensor(adv).to(device)
-        returns = torch.tensor(returns).to(device)
+        adv     = torch.tensor(adv)
+        returns = torch.tensor(returns)
 
         # PPO update (one epoch, minibatch)
         clip_eps = 0.2

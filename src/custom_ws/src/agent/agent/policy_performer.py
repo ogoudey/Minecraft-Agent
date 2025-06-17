@@ -12,6 +12,9 @@ from state_former import StateFormer
 import algorithm as rl
 import torch
 import numpy as np
+import os
+import time
+import matplotlib.pyplot as plt
 
 class KeyboardInput(Node):
     def __init__(self):
@@ -93,34 +96,85 @@ class Performer(Node):
         if action[8]:                  # UP
             msg.angular.y = -1.0
         if action[9]:                  # B
-            future = self.dig_cli.call_async(DigBlock.Request(timeout=10.0))
+            future = self.dig_cli.call_async(DigBlock.Request(timeout=4.0))
         self.publisher.publish(msg)
         return future
         
     def halt_performance(self):
         self.publisher.publish(Twist())
-        
-def train(args=None):
+
+def test(checkpoint):
     rclpy.init()
     node = Performer()
     state_former = StateFormer()
+    rewarder = command.Rewarder()
     exec_ = MultiThreadedExecutor()
     exec_.add_node(state_former)
+    exec_.add_node(rewarder)
+
+    t = threading.Thread(target=exec_.spin, daemon=True)
+    t.start()
+    
+    policy = rl.RGBPolicy()    
+    # Load policy checkpoint
+
+    print(f"Loading checkpoint from: {checkpoint}")
+    state_dict = torch.load(checkpoint) # , map_location=device
+    policy.load_state_dict(state_dict)
+    print("Checkpoint loaded successfully.")
+    
+    len_episode = 500
+    command.reset_learner()
+    state = state_former.get_state('/player/image_raw')
+    
+    for step in range(0, len_episode):
+            with torch.no_grad():
+                act_idx, logp, val = policy.act(state)
+            
+            #future = node.perform(action)
+            future = node.perform(one_hot(act_idx.item()))
+            rclpy.spin_once(node, timeout_sec=0.01)
+            if future and not future.done():
+                rclpy.spin_until_future_complete(node, future)
+            
+                           
+            state = state_former.get_state('/player/image_raw')
+            
+            reward = rewarder.give()
+            if reward > 0:
+                print("Hurray! (Giving server some time)")
+                break
+       
+def train(checkpoint=None):
+    rclpy.init()
+    node = Performer()
+    state_former = StateFormer()
+    rewarder = command.Rewarder()
+    exec_ = MultiThreadedExecutor()
+    exec_.add_node(state_former)
+    exec_.add_node(rewarder)
 
     t = threading.Thread(target=exec_.spin, daemon=True)
     t.start() 
-    
-    
+       
     policy = rl.RGBPolicy()    
-    
+    # Load policy checkpoint
+    if checkpoint is not None:
+        print(f"Loading checkpoint from: {checkpoint}")
+        state_dict = torch.load(checkpoint) # , map_location=device
+        policy.load_state_dict(state_dict)
+        print("Checkpoint loaded successfully.")
+        
     len_episode = 500
     iterations = int(input("# iterations: "))
+    episode_rewards = []
     
     for i in range(0, iterations):
         command.reset_learner()
         
         future = None
         done = False
+        cumulative_reward = 0
         #############
         #  ROLLOUT  #
         #############
@@ -128,16 +182,8 @@ def train(args=None):
         state = state_former.get_state('/player/image_raw')
 
         for step in range(0, len_episode):
-            print("Step:", step)
-
-            if state['/player/image_raw'] is None:
-                state = state_former.get_state('/player/image_raw')
-                continue
-            state_t = img_msg_to_tensor(state['/player/image_raw']).unsqueeze(0)
-            print(state_t.shape)
-            
             with torch.no_grad():
-                act_idx, logp, val = policy.act(state_t)
+                act_idx, logp, val = policy.act(state)
             
             #future = node.perform(action)
             future = node.perform(one_hot(act_idx.item()))
@@ -147,16 +193,25 @@ def train(args=None):
             
                            
             next_state = state_former.get_state('/player/image_raw')
-            reward = command.reward()
+            reward = rewarder.give()
+            cumulative_reward += reward
             if reward > 0:
+                print("Hurray! (Giving server some time)")
+                time.sleep(1)
                 done = True
             
-            buffer.append((state_t, act_idx.item(), logp.item(), val.item(), reward, done))
+            buffer.append((state, act_idx.item(), logp.item(), val.item(), reward, done))
+            
+            if (i + 1) % 3 == 0:
+                os.makedirs('/ws/custom/checkpoints', exist_ok=True)
+                torch.save(policy.state_dict(), f'/ws/custom/checkpoints/policy_iter_{i+1}.pth')
+                plot_topics = [episode_rewards]
+                plot(plot_topics)
             
             state = next_state
             if done:
                 break
-                
+              
         node.halt_performance()
         #  END ROLLOUT
         
@@ -166,41 +221,36 @@ def train(args=None):
         
         policy.compute_returns(buffer)
         
-        
+        episode_rewards.append(cumulative_reward)  
+    
+    ### Saving ###
+    os.makedirs('/ws/custom/checkpoints', exist_ok=True)
+    torch.save(policy.state_dict(), '/ws/custom/checkpoints/policy_w_' + str(iterations) + '_iters.pth')
+    ###
+    
+    plot_topics = [episode_rewards]
+    plot(plot_topics)
+             
     exec_.shutdown()
     state_former.destroy_node()    
     node.destroy_node()
     rclpy.shutdown()
-        
-        
-# Helper for state -> tensor
 
-from cv_bridge import CvBridge, CvBridgeError
-bridge = CvBridge()
-
+def plot(plot_topics):
+    for plot_topic in plot_topics:
+        plt.figure()
+        plt.plot(plot_topic)
+        plt.xlabel("Episode")
+        plt.ylabel("Cumulative Reward") # uhh - how to do this?
+        plt.title("Training Progress")
+        plt.grid(True)
+        plt.savefig("reward_plot.png")  # Optional: save to disk
+        plt.show()
+        
 def one_hot(index: int, size: int = 10):
     vec = [0.0] * size
     vec[index] = 1.0
     return vec
-
-def img_msg_to_tensor(msg, resize=(84, 84)):
-    """
-    sensor_msgs.msg.Image  ->  torch.FloatTensor  (C,H,W) in [0,1]
-    """
-    try:
-
-        rgb = bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8')
-    except CvBridgeError as e:
-        raise RuntimeError(f'cv_bridge failed: {e}')
-
-
-    if resize is not None:
-        import cv2
-        rgb = cv2.resize(rgb, resize, interpolation=cv2.INTER_AREA)   # (h,w,3)
-
-
-    rgb = np.transpose(rgb, (2, 0, 1)).astype(np.float32) / 255.0     # (3,H,W)
-    return torch.from_numpy(rgb)        # torch.FloatTensor    
     
 def teleop(args=None):
     rclpy.init(args=args)
@@ -209,4 +259,14 @@ def teleop(args=None):
     rclpy.shutdown()
 
 if __name__ == '__main__':
-    train()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--checkpoint', type=str, default=None,
+                        help='Path to a saved policy checkpoint (.pth)')
+    parser.add_argument('--test', action='store_true',
+                        help='Test policy (provide --checkpoint <checkpoint>)')
+    args = parser.parse_args()
+    if args.test:
+        test(checkpoint=args.checkpoint)
+    else:
+        train(checkpoint=args.checkpoint)
