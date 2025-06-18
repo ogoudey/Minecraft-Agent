@@ -77,15 +77,22 @@ Make sure the black popup window is in focus. WASD+space to move, arrow keys to 
 2. Make the oak tree at 0 -60 4
 
 3. Add the following redstone device, and point it to the tree:
-
 ![Screenshot from 2025-06-17 21-51-22](https://github.com/user-attachments/assets/0e287634-8891-46b2-838e-55b3024ba72f)
+That is, for a tree at 0 -60 4, in put in the the command block the line:
+```
+execute if block 0 -60 4 minecraft:oak_log if block 0 -59 4 minecraft:oak_log if block 0 -58 4 minecraft:oak_log if block 0 -57 4 minecraft:oak_log
+```
+and thats a _repeating_, _always_active_ command block. (Pay attention to the directionality of the command block.)
 
+4. Then link up ROS and _that_particular_command_block_. In Minecraft chat, say
+```
+/data merge block -3 -60 16 {CustomName:"redstone/my_block",pollRate:10}
+```
+where the coordinates are of the `minecraft_ros2:redstone_pub_sub` block in the device above. (The ROS node Rewarder subscribes to `/redstone/my_block/output` so "my_block" is important.)
 
+5. source all ROS workspaces and the virtual environment created in Custom Setup
 
-
-4. source all ROS workspaces and the virtual environment created in Custom Setup
-
-5. In `/ws/custom/custom_ws/`, run:
+6. In `/ws/custom/custom_ws/`, run:
 ```
 python3 src/agent/agent/policy_performer.py (--checkpoint /ws/custom/checkpoints/best.pth (--test))
 ```
