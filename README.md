@@ -71,7 +71,7 @@ Make sure the black popup window is in focus. WASD+space to move, arrow keys to 
 
 ## Reinforcement Learning
 
-### Grassy Superfla
+### Grassy Superflat
 1. Open up the superflat grass_block world in Minecraft.
 
 2. Make the oak tree at 0 -60 4
