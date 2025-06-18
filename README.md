@@ -8,10 +8,11 @@ This repo introduces three executable ROS nodes: the Rewarder, StateFormer, and 
 # clone this repo
 
 cd minecraft_ros2
-docker compose up # build the container
+xhost +local:root         # for GUI permissions for docker
+docker compose up         # build the container
 
 # in another terminal
-./bash.sh            # shortcut for entering the running container
+./bash.sh                 # shortcut for entering the running container
 
 # source all overlays (including ros2_java_ws)
 
@@ -77,6 +78,7 @@ Make sure the black popup window is in focus. WASD+space to move, arrow keys to 
 2. Make the oak tree at 0 -60 4
 
 3. Add the following redstone device, and point it to the tree:
+
 ![Screenshot from 2025-06-17 21-51-22](https://github.com/user-attachments/assets/0e287634-8891-46b2-838e-55b3024ba72f)
 That is, for a tree at 0 -60 4, in put in the the command block the line:
 ```
