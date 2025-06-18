@@ -78,6 +78,11 @@ Make sure the black popup window is in focus. WASD+space to move, arrow keys to 
 
 3. Add the following redstone device, and point it to the tree:
 
+![Screenshot from 2025-06-17 21-51-22](https://github.com/user-attachments/assets/0e287634-8891-46b2-838e-55b3024ba72f)
+
+
+
+
 4. source all ROS workspaces and the virtual environment created in Custom Setup
 
 5. In `/ws/custom/custom_ws/`, run:
