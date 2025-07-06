@@ -84,9 +84,9 @@ That is, for a tree at 0 -60 4, write in the Minecraft command block the line:
 ```
 execute if block 0 -60 4 minecraft:oak_log if block 0 -59 4 minecraft:oak_log if block 0 -58 4 minecraft:oak_log if block 0 -57 4 minecraft:oak_log
 ```
-and thats a _repeating, always active_ command block. (Pay attention to the directionality of the command block.)
+and that's a _repeating, always active_ command block. (Pay attention to the directionality of the command block.)
 
-4. Then link up ROS and _that particular command block_. In Minecraft chat, say
+4. Then link up ROS to _that particular command block_. In Minecraft chat, say
 ```
 /data merge block -3 -60 16 {CustomName:"redstone/my_block",pollRate:10}
 ```
