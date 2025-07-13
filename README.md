@@ -24,7 +24,7 @@ docker compose up         # build the container
 
 ```
 ### Note:
-If you get an error relating to the GPU (or non-existence of one on the host machine), delete the `deploy.resources.reservations.devices` block.
+If you get an error relating to the GPU (or non-existence of one on the host machine), delete the `deploy.resources.reservations.devices` block in the `compose.yaml`.
 
 ## Custom Setup
 Make sure the container's up and running (`docker compose up`).
