@@ -8,6 +8,8 @@ This repo introduces three executable ROS nodes: the Rewarder, StateFormer, and 
 # clone this repo
 git clone https://github.com/ogoudey/Minecraft-Agent.git
 
+cd Minecraft-Agent
+
 # clone the minecraft_ros2 repo
 git clone https://github.com/minecraft-ros2/minecraft_ros2.git
 
@@ -22,27 +24,32 @@ docker compose up         # build the container
 
 ```
 ### Note:
-My Dockerfile adds an additional workspace to fill in the holes of the minecraft_ros2 repo. Might not be needed in the future/ever. Try building it and sourcing it - it may fix the DigBlock service.
+If you get an error relating to the GPU (or non-existence of one on the host machine), delete the `deploy.resources.reservations.devices` block in the `compose.yaml`.
 
 ## Custom Setup
-Make sure the container's up and running (`docker compose up`).
 
-### Python Libraries
-For all Python libraries, in the container (use `./bash.sh` again to open bash in the container) do:
-```
-apt update
-apt install python3.10-venv
-cd custom
-python3 -m venv .venv
-. .venv/bin/activate
-pip install pygame numpy torch pyyaml cv_bridge opencv-python matplotlib    # and all future libs to be used
-```
 
 ### New ROS Nodes and Agent
 Now, get the custom ROS workspace in there. On the host machine, run:
 ```
 ./copy_scripts.sh      # shortcut for 'docker cp ...'
 ```
+
+Make sure the container's up and running (`docker compose up`), and enter it with:
+```
+./bash.sh
+```
+
+Now in the container, do:
+```
+apt update
+apt install python3.10-venv
+cd ../custom        # this is the custom, copied directory
+python3 -m venv .venv
+. .venv/bin/activate
+pip install pygame numpy torch pyyaml cv_bridge opencv-python matplotlib    # and all future libs to be used
+```
+
 The files will be moved into the container in the right spot. Now build the custom workspace from back inside the container:
 ```
 cd custom/custom_ws
