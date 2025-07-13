@@ -24,7 +24,7 @@ docker compose up         # build the container
 
 ```
 ### Note:
-My Dockerfile adds an additional workspace to fill in the holes of the minecraft_ros2 repo. Might not be needed in the future/ever. Try building it and sourcing it - it may fix the DigBlock service.
+If you get an error relating to the GPU (or non-existence of one on the host machine), delete the `deploy.resources.reservations.devices` block.
 
 ## Custom Setup
 Make sure the container's up and running (`docker compose up`).
