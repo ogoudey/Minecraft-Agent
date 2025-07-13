@@ -8,6 +8,8 @@ This repo introduces three executable ROS nodes: the Rewarder, StateFormer, and 
 # clone this repo
 git clone https://github.com/ogoudey/Minecraft-Agent.git
 
+cd Minecraft-Agent
+
 # clone the minecraft_ros2 repo
 git clone https://github.com/minecraft-ros2/minecraft_ros2.git
 
