@@ -7,6 +7,9 @@ This repo introduces three executable ROS nodes: the Rewarder, StateFormer, and 
 ```
 # clone this repo
 
+# clone the minecraft_ros2 repo
+git clone https://github.com/minecraft-ros2/minecraft_ros2.git
+
 cd minecraft_ros2
 xhost +local:root         # for GUI permissions for docker
 docker compose up         # build the container
