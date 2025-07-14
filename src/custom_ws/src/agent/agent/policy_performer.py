@@ -8,7 +8,7 @@ import pygame
 import sys
 import random
 import command
-from state_former import StateFormer
+import state_former as stateformer
 import algorithm as rl
 import torch
 import numpy as np
@@ -29,8 +29,9 @@ class KeyboardInput(Node):
         pygame.display.set_caption("Key Press")
         screen.fill((0,0,0))
 
-        clock = pygame.time.Clock()
-        
+        self.clock = pygame.time.Clock()
+    
+    def just_input(self): 
         while True:
             pygame.event.get()
             pressed = pygame.key.get_pressed()
@@ -59,11 +60,42 @@ class KeyboardInput(Node):
             self.publisher.publish(msg)
             
             pygame.display.flip()
-            clock.tick(60) # hz
+            self.clock.tick(60) # hz
             
             reward = command.reward()
         pygame.quit()
+    
+    def demonstrate(self): 
 
+        pygame.event.get()
+        pressed = pygame.key.get_pressed()
+        action = [0.0] * 10
+        if pressed[pygame.K_w]:
+            action[0] = True
+        if pressed[pygame.K_d]:
+            action[1] = True
+        if pressed[pygame.K_a]:
+            action[2] = True
+        if pressed[pygame.K_s]:
+            action[3] = True 
+        if pressed[pygame.K_SPACE]:
+            action[4] = True
+        if pressed[pygame.K_LEFT]:
+            action[5] = True
+        if pressed[pygame.K_RIGHT]:
+            action[6] = True
+        if pressed[pygame.K_DOWN]:
+            action[7] = True
+        if pressed[pygame.K_UP]:
+            action[8] = True
+        if pressed[pygame.K_b]:
+            action[9] = True
+        
+        pygame.display.flip()
+        self.clock.tick(60) # hz
+
+        return action
+        
 class Performer(Node):
     def __init__(self):
         super().__init__('performer')
@@ -106,7 +138,7 @@ class Performer(Node):
 def test(checkpoint):
     rclpy.init()
     node = Performer()
-    state_former = StateFormer()
+    state_former = stateformer.StateFormer()
     rewarder = command.Rewarder()
     exec_ = MultiThreadedExecutor()
     exec_.add_node(state_former)
@@ -144,19 +176,37 @@ def test(checkpoint):
             if reward > 0:
                 print("Hurray! (Giving server some time)")
                 break
-       
-def train(checkpoint=None):
+
+def plot(plot_topics):
+    for plot_topic in plot_topics:
+        plt.figure()
+        plt.plot(plot_topic)
+        plt.xlabel("Episode")
+        plt.ylabel("Cumulative Reward") # uhh - how to do this?
+        plt.title("Training Progress")
+        plt.grid(True)
+        plt.savefig("reward_plot.png")  # Optional: save to disk
+        plt.show()
+        
+def one_hot(index: int, size: int = 10):
+    vec = [0.0] * size
+    vec[index] = 1.0
+    return vec
+    
+def teleop(checkpoint=None, replay_buffer=None, t_iterations=10, iterations=10):
     rclpy.init()
+    kbi = KeyboardInput()
     node = Performer()
-    state_former = StateFormer()
+    state_former = stateformer.StateFormer()
     rewarder = command.Rewarder()
     exec_ = MultiThreadedExecutor()
     exec_.add_node(state_former)
     exec_.add_node(rewarder)
-
+    exec_.add_node(kbi)
+    
     t = threading.Thread(target=exec_.spin, daemon=True)
-    t.start() 
-       
+    t.start()
+
     policy = rl.RGBPolicy()    
     # Load policy checkpoint
     if checkpoint is not None:
@@ -164,12 +214,50 @@ def train(checkpoint=None):
         state_dict = torch.load(checkpoint) # , map_location=device
         policy.load_state_dict(state_dict)
         print("Checkpoint loaded successfully.")
-        
+    
+    if replay_buffer:
+        ### Consume Replay Buffer ###
+        while len(replay_buffer) > 0:
+            replay = replay_buffer.pop(random.randrange(len(replay_buffer)))
+            policy.compute_returns(replay)
+        #
+    
     len_episode = 500
-    iterations = int(input("# iterations: "))
+    
+    for t in range(0, t_iterations):
+        node.halt_performance()
+        command.reset_learner()
+        future = None
+        done = False
+        buffer = []
+        state = state_former.get_state('/player/image_raw')
+        for step in range(0, len_episode):
+            action = kbi.demonstrate() # no logprobs or value head...
+            future = node.perform(action)
+            rclpy.spin_once(node, timeout_sec=0.01)
+            if future and not future.done():
+                rclpy.spin_until_future_complete(node, future)
+            next_state = state_former.get_state('/player/image_raw')
+            reward = rewarder.give()
+            if reward > 0:
+                print("Hurray! (Giving server some time)")
+                time.sleep(1)
+                done = True
+            #buffer.append((state, action, logp.item(), val.item(), reward, done))
+        #buffer_replay.append(buffer)   
+            if done:
+                break
+    if replay_buffer:
+        ### Consume Replay Buffer Again ###
+        while len(replay_buffer) > 0:
+            replay = replay_buffer.pop(random.randrange(len(replay_buffer)))
+            policy.compute_returns(replay)
+        #
+           
     episode_rewards = []
     
     for i in range(0, iterations):
+        node.halt_performance()
         command.reset_learner()
         
         future = None
@@ -236,37 +324,17 @@ def train(checkpoint=None):
     node.destroy_node()
     rclpy.shutdown()
 
-def plot(plot_topics):
-    for plot_topic in plot_topics:
-        plt.figure()
-        plt.plot(plot_topic)
-        plt.xlabel("Episode")
-        plt.ylabel("Cumulative Reward") # uhh - how to do this?
-        plt.title("Training Progress")
-        plt.grid(True)
-        plt.savefig("reward_plot.png")  # Optional: save to disk
-        plt.show()
-        
-def one_hot(index: int, size: int = 10):
-    vec = [0.0] * size
-    vec[index] = 1.0
-    return vec
-    
-def teleop(args=None):
-    rclpy.init(args=args)
-    kbi = KeyboardInput()
-    rclpy.spin(kbi)
-    rclpy.shutdown()
-
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--checkpoint', type=str, default=None,
                         help='Path to a saved policy checkpoint (.pth)')
+    parser.add_argument('--replay_buffer', type=str, default=None,
+                        help='Path to a saved replay buffer (not fully implemented)')
     parser.add_argument('--test', action='store_true',
                         help='Test policy (provide --checkpoint <checkpoint>)')
     args = parser.parse_args()
     if args.test:
         test(checkpoint=args.checkpoint)
     else:
-        train(checkpoint=args.checkpoint)
+        teleop(checkpoint=args.checkpoint)

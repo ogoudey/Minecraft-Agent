@@ -7,6 +7,27 @@ from std_msgs.msg import Int32
 
 import time
 
+def run_mc_command(cli, node, command):
+    future = cli.call_async(Command.Request(command=command))
+    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
+    try:
+        resp = future.result()
+    except Exception as e:
+        node.get_logger().error(f'service call failed: {e}')
+        
+    if command == "kill Dev":
+        time.sleep(1) # Guessing this might help
+
+def initialize_resetter():
+    node = Node('reset_learner')
+    cli  = node.create_client(Command, '/minecraft/command')
+    if not cli.service_is_ready():
+        node.get_logger().info('waiting for /minecraft/command …')
+        cli.wait_for_service()
+        
+
+    run_mc_command(cli, node, "spawnpoint Dev 0 -60 0")
+
 def reset_learner():
     #rclpy.init()
     node = Node('reset_learner')
@@ -15,126 +36,25 @@ def reset_learner():
         node.get_logger().info('waiting for /minecraft/command …')
         cli.wait_for_service()
         
-    size  = 7
-    y     = -61
-    block = 'minecraft:grass_block'
-    for x in range(-size, size + 1):
-        for z in range(-size, size + 1):
-            cmd = f'setblock {x} {y} {z} {block} replace'
-            future = cli.call_async(Command.Request(command=cmd))
-            rclpy.spin_until_future_complete(node, future)     # wait for result
-            try:
-                resp = future.result()
-                if not resp.success:
-                    node.get_logger().warn(f'({x},{y},{z}) failed: {resp.message}')
-            except Exception as e:
-                node.get_logger().error(f'setblock failed at ({x},{y},{z}): {e}')
-    
-    future = cli.call_async(Command.Request(command='kill Dev'))
-   
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-    
-    try:
-        resp = future.result()
 
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')
+    run_mc_command(cli, node, "kill Dev")
+    run_mc_command(cli, node, 'kill @e[type=item]')
+    run_mc_command(cli, node, 'clear Dev *')
     
-    time.sleep(1) # Guessing this might help
-    future = cli.call_async(Command.Request(command='tp Dev 0 -60 0'))
+    
 
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-    
-    try:
-        resp = future.result()
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')  
-        
-    future = cli.call_async(Command.Request(command='clear Dev *'))
-
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-    
-    try:
-        resp = future.result()
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')
-        
     """  
-    # Don't need this one yet.
-    future = cli.call_async(Command.Request(command='item replace entity Dev armor.head with minecraft_ros2:velodyne_vlp16'))
-
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-
-    try:
-        resp = future.result()
-
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')
+    # Don't need these yet.
+    run_mc_command('item replace entity Dev armor.head with minecraft_ros2:velodyne_vlp16')
+    
+    run_mc_command('fill -6 -60 -6 6 10 6 minecraft:air')
     """    
         
-    future = cli.call_async(Command.Request(command='give Dev minecraft:stone_axe'))
-
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-
-    try:
-        resp = future.result()
-
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')
+    run_mc_command(cli, node, 'give Dev minecraft:stone_axe')   
+    run_mc_command(cli, node, 'time set day')
         
-        
-    future = cli.call_async(Command.Request(command='time set day'))
-
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-
-    try:
-        resp = future.result()
-
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')
-        
-        
-    future = cli.call_async(Command.Request(command='setblock 0 -60 4 minecraft:oak_log'))
-
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-
-    try:
-        resp = future.result()
-
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')
-        
-    future = cli.call_async(Command.Request(command='setblock 0 -59 4 minecraft:oak_log'))
-
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-
-    try:
-        resp = future.result()
-
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')
-        
-    future = cli.call_async(Command.Request(command='setblock 0 -58 4 minecraft:oak_log'))
-
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-
-    try:
-        resp = future.result()
-
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')
-        
-    future = cli.call_async(Command.Request(command='setblock 0 -57 4 minecraft:oak_log'))
-
-    rclpy.spin_until_future_complete(node, future)   # block until reply arrives
-
-    try:
-        resp = future.result()
-
-    except Exception as e:
-        node.get_logger().error(f'service call failed: {e}')
-
-    time.sleep(1)
+    run_mc_command(cli, node, 'place feature minecraft:oak 0 -60 4')
+    
     node.destroy_node()
 
     #rclpy.shutdown()
@@ -151,9 +71,11 @@ class Rewarder(Node):
         )
         self._latest = 1
         self.log = log
+        initialize_resetter()
+        
 
     def cb(self, msg: Int32):
-        self._latest = msg.data
+        self._latest = msg.data # Policy Evaluation comes from within Minecraft.
         if self.log:
             print(self.give())
 

@@ -1,1 +1,4 @@
 minecraft_ros2
+src/custom_ws/build/
+src/custom_ws/install/
+src/custom_ws/log/

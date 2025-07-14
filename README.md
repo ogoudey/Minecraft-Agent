@@ -86,9 +86,7 @@ Make sure the black popup window is in focus. WASD+space to move, arrow keys to 
 ### Grassy Superflat
 1. Open up the superflat grass_block world in Minecraft.
 
-2. Make the oak tree at 0 -60 4
-
-3. Add the following redstone device, and point it to the tree:
+2. Add the following redstone device, and point it to the tree:
 
 ![Screenshot from 2025-06-17 21-51-22](https://github.com/user-attachments/assets/0e287634-8891-46b2-838e-55b3024ba72f)
 That is, for a tree at 0 -60 4, write in the Minecraft command block the line:
