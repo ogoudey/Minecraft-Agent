@@ -19,7 +19,7 @@ fi
 
 # Define source and target paths
 SOURCE_DIR="./${WORLD_NAME}"
-TARGET_DIR="/ws/minecraft_ros2/run/saves/${WORLD_NAME}"
+TARGET_DIR="/ws/minecraft_ros2/.cache/minecraft/saves/${WORLD_NAME}"
 
 # Check if the source world directory exists
 if [ ! -d "$SOURCE_DIR" ]; then
