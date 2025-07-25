@@ -14,5 +14,7 @@ fi
 # Execute bash in the container
 sudo docker exec "$CONTAINER_ID" mkdir -p /ws/custom
 
-sudo docker cp src/. "$CONTAINER_ID":/ws/custom/
+sudo docker cp src/custom_ws "$CONTAINER_ID":/ws/custom/
+
+sudo docker cp src/quick_start.sh "$CONTAINER_ID":/ws/minecraft_ros2/
 
