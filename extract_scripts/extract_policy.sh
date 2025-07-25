@@ -22,9 +22,6 @@ if [ -z "$CONTAINER_ID" ]; then
   exit 1
 fi
 
-# Execute bash in the container
-
-sudo docker cp "$CONTAINER_ID":/ws/custom/checkpoints/" .
 # Copy the policy from inside the container
 sudo docker cp "$CONTAINER_ID":"/ws/custom/checkpoints/${POLICY_NAME}" "$OUTPUT_DIR"
 

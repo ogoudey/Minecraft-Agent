@@ -20,9 +20,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-        'keys = agent.policy_performer:teleop',
+        'keys = agent.policy_performer:just_keys',
         'state_former = agent.state_former:main',
         'rewarder = agent.command:main',
+        'train = agent.policy_performer:teleop',
         ],
     },
 )

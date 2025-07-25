@@ -7,9 +7,9 @@ import threading
 import pygame
 import sys
 import random
-import command
-import state_former as stateformer
-import algorithm as rl
+from agent import command
+from agent import state_former as stateformer
+from agent import algorithm as rl
 import torch
 import numpy as np
 import os
@@ -31,42 +31,43 @@ class KeyboardInput(Node):
 
         self.clock = pygame.time.Clock()
     
-    def just_input(self): 
-        while True:
-            pygame.event.get()
-            pressed = pygame.key.get_pressed()
-            msg = Twist()
-            if pressed[pygame.K_w]:
-                msg.linear.x = 1.0
-            if pressed[pygame.K_d]:
-                msg.linear.y = -1.0
-            if pressed[pygame.K_a]:
-                msg.linear.y = 1.0
-            if pressed[pygame.K_s]:
-                msg.linear.x = 1.0 
-            if pressed[pygame.K_SPACE]:
-                msg.linear.z = 1.0
-            if pressed[pygame.K_LEFT]:
-                msg.angular.z = 1.0
-            if pressed[pygame.K_RIGHT]:
-                msg.angular.z = -1.0
-            if pressed[pygame.K_DOWN]:
-                msg.angular.y = 1.0
-            if pressed[pygame.K_UP]:
-                msg.angular.y = -1.0
-            if pressed[pygame.K_b]:
-                future = self.dig_cli.call_async(DigBlock.Request(timeout=10.0))
-                
-            self.publisher.publish(msg)
+    def just_input(self):
+        """ Takes keyboard input and outputs a movement """
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                break
+        
+        pressed = pygame.key.get_pressed()
+        msg = Twist()
+        if pressed[pygame.K_w]:
+            msg.linear.x = 1.0
+        if pressed[pygame.K_d]:
+            msg.linear.y = -1.0
+        if pressed[pygame.K_a]:
+            msg.linear.y = 1.0
+        if pressed[pygame.K_s]:
+            msg.linear.x = 1.0 
+        if pressed[pygame.K_SPACE]:
+            msg.linear.z = 1.0
+        if pressed[pygame.K_LEFT]:
+            msg.angular.z = 1.0
+        if pressed[pygame.K_RIGHT]:
+            msg.angular.z = -1.0
+        if pressed[pygame.K_DOWN]:
+            msg.angular.y = 1.0
+        if pressed[pygame.K_UP]:
+            msg.angular.y = -1.0
+        if pressed[pygame.K_b]:
+            future = self.dig_cli.call_async(DigBlock.Request(timeout=3.0))
             
-            pygame.display.flip()
-            self.clock.tick(60) # hz
-            
-            reward = command.reward()
-        pygame.quit()
+        self.publisher.publish(msg)
+        
+        pygame.display.flip()
+        self.clock.tick(60) # hz
     
     def demonstrate(self): 
-
+        """ Takes keyboard input and returns an action """
         pygame.event.get()
         pressed = pygame.key.get_pressed()
         action = [0.0] * 10
@@ -95,6 +96,9 @@ class KeyboardInput(Node):
         self.clock.tick(60) # hz
 
         return action
+
+    def halt_performance(self):
+        self.publisher.publish(Twist())
         
 class Performer(Node):
     def __init__(self):
@@ -104,31 +108,37 @@ class Performer(Node):
         self.dig_cli = self.create_client(DigBlock, '/dig_block')
         
     def perform(self, action):
-        #       Action is:
-        #   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        #
+        """
+        Takes an action (from KeybopardInput.demonstrate or from policy) and outputs a movement
+        
+        Action is:
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        """
+        speed = 0.5
+        look_speed = 1.0
+        
         future = None
         msg = Twist()
         if action[0]:                  # W
-            msg.linear.x = 1.0
+            msg.linear.x = speed
         if action[1]:                  # D
-            msg.linear.y = -1.0
+            msg.linear.y = -speed
         if action[2]:                  # A
-            msg.linear.y = 1.0
+            msg.linear.y = speed
         if action[3]:                  # S
-            msg.linear.x = -1.0
+            msg.linear.x = -speed
         if action[4]:                  # SPACE
-            msg.linear.z = 1.0
+            msg.linear.z = speed
         if action[5]:                  # LEFT
-            msg.angular.z = 1.0
+            msg.angular.z = look_speed
         if action[6]:                  # RIGHT
-            msg.angular.z = -1.0
+            msg.angular.z = -look_speed
         if action[7]:                  # DOWN
-            msg.angular.y = 1.0
+            msg.angular.y = look_speed
         if action[8]:                  # UP
-            msg.angular.y = -1.0
+            msg.angular.y = -look_speed
         if action[9]:                  # B
-            future = self.dig_cli.call_async(DigBlock.Request(timeout=4.0))
+            future = self.dig_cli.call_async(DigBlock.Request(timeout=2.0))
         self.publisher.publish(msg)
         return future
         
@@ -195,14 +205,16 @@ def one_hot(index: int, size: int = 10):
     
 def teleop(checkpoint=None, replay_buffer=None, t_iterations=10, iterations=10):
     rclpy.init()
-    kbi = KeyboardInput()
+    
     node = Performer()
     state_former = stateformer.StateFormer()
     rewarder = command.Rewarder()
     exec_ = MultiThreadedExecutor()
     exec_.add_node(state_former)
     exec_.add_node(rewarder)
-    exec_.add_node(kbi)
+    if t_iterations > 0:
+        kbi = KeyboardInput()
+        exec_.add_node(kbi)
     
     t = threading.Thread(target=exec_.spin, daemon=True)
     t.start()
@@ -270,6 +282,7 @@ def teleop(checkpoint=None, replay_buffer=None, t_iterations=10, iterations=10):
         state = state_former.get_state('/player/image_raw')
 
         for step in range(0, len_episode):
+            print(f'Step: {step}', end='\r', flush=True)
             with torch.no_grad():
                 act_idx, logp, val = policy.act(state)
             
@@ -286,6 +299,7 @@ def teleop(checkpoint=None, replay_buffer=None, t_iterations=10, iterations=10):
             if reward > 0:
                 print("Hurray! (Giving server some time)")
                 time.sleep(1)
+                rewarder._latest = 0 # hopeful overridew
                 done = True
             
             buffer.append((state, act_idx.item(), logp.item(), val.item(), reward, done))
@@ -324,6 +338,33 @@ def teleop(checkpoint=None, replay_buffer=None, t_iterations=10, iterations=10):
     node.destroy_node()
     rclpy.shutdown()
 
+def just_keys():
+    rclpy.init()
+    kbi = KeyboardInput()
+    rewarder = command.Rewarder()
+    exec_ = MultiThreadedExecutor()
+    exec_.add_node(rewarder)
+    exec_.add_node(kbi)
+    t = threading.Thread(target=exec_.spin, daemon=True)
+    t.start()
+    
+    
+    command.reset_learner()
+    time.sleep(1)
+    
+    
+    
+    
+    while True:
+        kbi.just_input()
+        reward = rewarder.give()
+        if reward > 0:
+            print("Hurray! (Giving server some time)")
+            kbi.halt_performance()
+            time.sleep(1)
+    exec_.shutdown()
+    rclpy.shutdown()       
+    
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
@@ -333,8 +374,12 @@ if __name__ == '__main__':
                         help='Path to a saved replay buffer (not fully implemented)')
     parser.add_argument('--test', action='store_true',
                         help='Test policy (provide --checkpoint <checkpoint>)')
+    parser.add_argument('--i', type=int, default=0,
+                        help='Iterations of policy-based performance')
+    parser.add_argument('--t', type=int, default=0,
+                        help='Iterations of teleop-based performance (broken on PPO)')
     args = parser.parse_args()
     if args.test:
         test(checkpoint=args.checkpoint)
     else:
-        teleop(checkpoint=args.checkpoint)
+        teleop(checkpoint=args.checkpoint, replay_buffer=args.replay_buffer, t_iterations=args.t, iterations=args.i)
