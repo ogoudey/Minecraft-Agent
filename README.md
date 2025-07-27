@@ -29,11 +29,22 @@ docker compose up         # build the container
 
 # Running
 ## Testing performance
-1. Start Minecraft (`docker compose up`) and open up a world.
+1. Start Minecraft (if container isn't already up):
+```
+cd minecraft_ros2
+sudo xhost +local:root
+sudo docker compose up
+```
+Then open up a Minecraft world.
+
 2. In another terminal:
 ```
+cd Minecraft
 ./bash.sh # now you're in the container
-. quickstart
+. quick_start.sh
+```
+
+```
 ros2 run agent keys
 ```
 Make sure the black popup window is in focus. WASD+space to move, arrow keys to orient, and B to dig.
@@ -43,6 +54,10 @@ Make sure the black popup window is in focus. WASD+space to move, arrow keys to 
 ### Grassy Superflat
 Currently only one training environment is supported.
 
+After `. quick_start.sh`, run:
+```
+python3 src/agent/agent/policy_performer.py --i 100         # Trains for 100 iterations.
+```
 
 #### How it works
 Policy evaluation comes from the following redstone device, which senses if particular blocks are broken:
@@ -72,3 +87,25 @@ where the coordinates are of the `minecraft_ros2:redstone_pub_sub` block in the 
 ### Extras
 Hit F3 + P to enable/disable pause on lost focus.
 Hide the chat in settings.
+
+## File structure
+(Will turn this into a CLI soon)
+### extract_scripts
+#### extract_graph.sh
+Brings a specified plot (any plots automatically saved in the container's workspace root) to the project root.
+#### extract_policy.sh
+Brings a specified policy to the `/figures`. These policies are later loaded by the `--checkpoint` argument.
+#### save_world.sh
+Saves the Minecraft save folder to `/world_saves`. 
+
+### world_saves
+Folder of all saved Minecraft worlds
+#### load_saved_world.sh
+Puts the saved world into the container's Minecraft saved worlds folder, to be opened from the Minecraft GUI.
+
+## Contributing
+To push changes to the algorithm, performance, or reward system:
+
+1. Edit the files on host machine
+2. Run ./copy_scripts.sh
+3. From inside the container rebuild `custom_ws`: `colcon build && . install/setup.bash`

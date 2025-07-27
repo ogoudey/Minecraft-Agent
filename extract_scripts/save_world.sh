@@ -11,7 +11,7 @@ if [ -z "$WORLD_NAME" ]; then
 fi
 
 # Define output directory
-OUTPUT_DIR="../minecraft_world_saves"
+OUTPUT_DIR="../world_saves"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"

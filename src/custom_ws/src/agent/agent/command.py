@@ -72,7 +72,7 @@ def reset_learner():
     run_mc_command(cli, node, 'kill @e[type=item]')
     run_mc_command(cli, node, 'clear Dev *')
     
-    run_mc_command(cli, node, f'setblock {tree_x} {bedrock_y} {tree_z} minecraft:bedrock destroy') # run far from placing oak to give it time (?)
+    run_mc_command(cli, node, f'setblock {tree_x} {bedrock_y} {tree_z} minecraft:bedrock replace') # run far from placing oak to give it time (?)
 
     """  
     # Don't need these yet.
