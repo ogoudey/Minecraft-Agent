@@ -10,8 +10,8 @@ git clone https://github.com/ogoudey/Minecraft-Agent.git
 
 cd Minecraft-Agent
 
-# clone the minecraft_ros2 repo
-git clone https://github.com/minecraft-ros2/minecraft_ros2.git
+# clone the (edit: bug-free fork of the original) minecraft_ros2 repo
+git clone https://github.com/ogoudey/minecraft_ros2
 
 cd minecraft_ros2
 xhost +local:root         # for GUI permissions for docker
