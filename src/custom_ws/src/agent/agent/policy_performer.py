@@ -9,7 +9,8 @@ import sys
 import random
 from agent import command
 from agent import state_former as stateformer
-from agent import algorithm as rl
+from agent.algorithms import ppo, sac
+from agent.trainers import PPO_Trainer, SAC_Trainer
 import torch
 import numpy as np
 import os
@@ -145,6 +146,7 @@ class Performer(Node):
     def halt_performance(self):
         self.publisher.publish(Twist())
 
+"""
 def test(checkpoint):
     rclpy.init()
     node = Performer()
@@ -186,6 +188,7 @@ def test(checkpoint):
             if reward > 0:
                 print("Hurray! (Giving server some time)")
                 break
+"""
 
 def plot(plot_topics):
     for plot_topic in plot_topics:
@@ -197,16 +200,23 @@ def plot(plot_topics):
         plt.grid(True)
         plt.savefig("reward_plot.png")  # Optional: save to disk
         plt.show()
-        
-def one_hot(index: int, size: int = 10):
-    vec = [0.0] * size
-    vec[index] = 1.0
-    return vec
+
+
+dispatch_dict = {
+    "ppo": {
+        "trainer": PPO_Trainer,
+        "module": ppo,
+    },
+    "sac": {
+        "trainer": SAC_Trainer,
+        "module": sac,
+    }
+}
     
-def teleop(checkpoint=None, replay_buffer=None, t_iterations=10, iterations=10):
+def teleop(checkpoint=None, replay_buffer=None, algorithm="ppo", t_iterations=10, iterations=10):
     rclpy.init()
     
-    node = Performer()
+    performer = Performer()
     state_former = stateformer.StateFormer()
     rewarder = command.Rewarder()
     exec_ = MultiThreadedExecutor()
@@ -218,112 +228,22 @@ def teleop(checkpoint=None, replay_buffer=None, t_iterations=10, iterations=10):
     
     t = threading.Thread(target=exec_.spin, daemon=True)
     t.start()
+    
+    
+    dispatches = dispatch_dict[algorithm]
+    trainer = dispatches["trainer"]()
+    module = dispatches["module"]
 
-    policy = rl.RGBPolicy()    
-    # Load policy checkpoint
-    if checkpoint is not None:
-        print(f"Loading checkpoint from: {checkpoint}")
-        state_dict = torch.load(checkpoint) # , map_location=device
-        policy.load_state_dict(state_dict)
-        print("Checkpoint loaded successfully.")
+    policy = module.Policy()
+    nodes = (state_former, performer, rewarder, command)
+    trainer.train(policy, checkpoint, replay_buffer, nodes)
     
-    if replay_buffer:
-        ### Consume Replay Buffer ###
-        while len(replay_buffer) > 0:
-            replay = replay_buffer.pop(random.randrange(len(replay_buffer)))
-            policy.compute_returns(replay)
-        #
+    policy
     
-    len_episode = 500
+    # Other algorithms#
     
-    for t in range(0, t_iterations):
-        node.halt_performance()
-        command.reset_learner()
-        future = None
-        done = False
-        buffer = []
-        state = state_former.get_state('/player/image_raw')
-        for step in range(0, len_episode):
-            action = kbi.demonstrate() # no logprobs or value head...
-            future = node.perform(action)
-            rclpy.spin_once(node, timeout_sec=0.01)
-            if future and not future.done():
-                rclpy.spin_until_future_complete(node, future)
-            next_state = state_former.get_state('/player/image_raw')
-            reward = rewarder.give()
-            if reward > 0:
-                print("Hurray! (Giving server some time)")
-                time.sleep(1)
-                done = True
-            #buffer.append((state, action, logp.item(), val.item(), reward, done))
-        #buffer_replay.append(buffer)   
-            if done:
-                break
-    if replay_buffer:
-        ### Consume Replay Buffer Again ###
-        while len(replay_buffer) > 0:
-            replay = replay_buffer.pop(random.randrange(len(replay_buffer)))
-            policy.compute_returns(replay)
-        #
-           
-    episode_rewards = []
     
-    for i in range(0, iterations):
-        node.halt_performance()
-        command.reset_learner()
-        
-        future = None
-        done = False
-        cumulative_reward = 0
-        #############
-        #  ROLLOUT  #
-        #############
-        buffer = []
-        state = state_former.get_state('/player/image_raw')
-
-        for step in range(0, len_episode):
-            print(f'Step: {step}', end='\r', flush=True)
-            with torch.no_grad():
-                act_idx, logp, val = policy.act(state)
-            
-            #future = node.perform(action)
-            future = node.perform(one_hot(act_idx.item()))
-            rclpy.spin_once(node, timeout_sec=0.01)
-            if future and not future.done():
-                rclpy.spin_until_future_complete(node, future)
-            
-                           
-            next_state = state_former.get_state('/player/image_raw')
-            reward = rewarder.give()
-            cumulative_reward += reward
-            if reward > 0:
-                print("Hurray! (Giving server some time)")
-                time.sleep(1)
-                rewarder._latest = 0 # hopeful overridew
-                done = True
-            
-            buffer.append((state, act_idx.item(), logp.item(), val.item(), reward, done))
-            
-            if (i + 1) % 3 == 0:
-                os.makedirs('/ws/custom/checkpoints', exist_ok=True)
-                torch.save(policy.state_dict(), f'/ws/custom/checkpoints/policy_iter_{i+1}.pth')
-                plot_topics = [episode_rewards]
-                plot(plot_topics)
-            
-            state = next_state
-            if done:
-                break
-              
-        node.halt_performance()
-        #  END ROLLOUT
-        
-        ###################
-        # COMPUTE RETURNS #
-        ###################
-        
-        policy.compute_returns(buffer)
-        
-        episode_rewards.append(cumulative_reward)  
+    policy
     
     ### Saving ###
     os.makedirs('/ws/custom/checkpoints', exist_ok=True)
@@ -372,6 +292,9 @@ if __name__ == '__main__':
                         help='Path to a saved policy checkpoint (.pth)')
     parser.add_argument('--replay_buffer', type=str, default=None,
                         help='Path to a saved replay buffer (not fully implemented)')
+    parser.add_argument('--a', type=str, default="ppo",
+                        help='Algorithm (ppo or sac)')
+    
     parser.add_argument('--test', action='store_true',
                         help='Test policy (provide --checkpoint <checkpoint>)')
     parser.add_argument('--i', type=int, default=0,
@@ -382,4 +305,4 @@ if __name__ == '__main__':
     if args.test:
         test(checkpoint=args.checkpoint)
     else:
-        teleop(checkpoint=args.checkpoint, replay_buffer=args.replay_buffer, t_iterations=args.t, iterations=args.i)
+        teleop(checkpoint=args.checkpoint, replay_buffer=args.replay_buffer, algorithm=args.a, t_iterations=args.t, iterations=args.i)

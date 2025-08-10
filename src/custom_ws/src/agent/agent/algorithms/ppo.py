@@ -3,9 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 
-# h: 240
-# w: 427
-class RGBPolicy(nn.Module):
+"""
+An algorithm module must implement a Policy class.
+A Policy class must implement act(), which returns what is consistent with the algorithm's trainer.
+"""
+
+class Policy(nn.Module):
     def __init__(self, n_actions=10):
         super().__init__()
         self.backbone = nn.Sequential(
@@ -22,7 +25,13 @@ class RGBPolicy(nn.Module):
         z = self.backbone(x / 255.0)
         return self.pi(z), self.vf(z).squeeze(-1)
 
-    # helper: returns action, log-prob, value
+            
+    def one_hot(index: int, size: int = 10):
+        vec = [0.0] * size
+        vec[index] = 1.0
+        return vec
+
+    # returns action, log-prob, value
     def act(self, x):
         if x.ndim == 3: # For non-batched inputs...
             x = x.unsqueeze(0)  # (1, 3, 84, 84)
@@ -30,6 +39,8 @@ class RGBPolicy(nn.Module):
         dist   = Categorical(logits=logits)
         action = dist.sample()
         return action, dist.log_prob(action), value
+    
+    
         
     def compute_returns(self, buffer):
         # turn the buffer into tensors
