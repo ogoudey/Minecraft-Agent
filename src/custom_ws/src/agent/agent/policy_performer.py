@@ -16,6 +16,7 @@ import numpy as np
 import os
 import time
 import matplotlib.pyplot as plt
+import tqdm
 
 class KeyboardInput(Node):
     def __init__(self):
@@ -212,7 +213,7 @@ dispatch_dict = {
         "module": sac,
     }
 }
-    
+
 def teleop(checkpoint=None, replay_buffer=None, algorithm="ppo", t_iterations=10, iterations=10):
     rclpy.init()
     
@@ -237,13 +238,6 @@ def teleop(checkpoint=None, replay_buffer=None, algorithm="ppo", t_iterations=10
     policy = module.Policy()
     nodes = (state_former, performer, rewarder, command)
     trainer.train(policy, checkpoint, replay_buffer, nodes)
-    
-    policy
-    
-    # Other algorithms#
-    
-    
-    policy
     
     ### Saving ###
     os.makedirs('/ws/custom/checkpoints', exist_ok=True)
