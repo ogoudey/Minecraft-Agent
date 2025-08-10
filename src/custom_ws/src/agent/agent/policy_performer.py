@@ -166,6 +166,7 @@ ignition =
 
 # Parameters #
 algorithm = "sac"
+state_type = "tree_detection"
 state_features = ("/player/image_raw")
 # End parameters
 def generalized_train(checkpoint=None, replay_buffer=None, t_iterations=10, iterations=10):
@@ -208,6 +209,20 @@ def generalized_train(checkpoint=None, replay_buffer=None, t_iterations=10, iter
     state_former.destroy_node()    
     performer.destroy_node()
     rclpy.shutdown()
+
+
+
+def data_collection(takes=2, steps_per_take= 100, images_per_take=5):
+    rclpy.init()
+    
+    performer = Performer()
+    state_former = StateFormer()
+    for take in range(0, takes):
+        command.reset_learner()
+        for step in range(0, steps_per_take):
+            performer.perform(random_action)
+            if step % images_per_take == 0:
+                rgb = state_former.get_state()
 
 def just_keys():
     rclpy.init()

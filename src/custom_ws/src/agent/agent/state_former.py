@@ -21,21 +21,25 @@ TOPICS = {
     '/tf'                 : (TFMessage,       50),
 }
 
-tensify_dispatcher = {
-    '/player/image_raw'   : img_msg_to_tensor,
-    '/player/pointcloud'  : None,
+topic_requirements_dispatcher = {
+    'tree_detection'      : ['/player/image_raw', '/player/pointcloud'],
+    'raw_image'           : ['/player/image_raw']
 }
 
+state_form_dispatcher = {
+    'tree_detection'      : detect_trees,
+    'raw_image'           : just_image
+}
 
 class StateFormer(Node):
-    def __init__(self, state_features):
+    def __init__(self, state_type):
         super().__init__('state_former')
-
+        self.state_type = state_type
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
 
         self._latest = {}          # topic → ROS message (or None)
         
-        self.state_features = state_features
+        state_features = topic_requirements_dispatcher[state_type]
         for topic, (msg_type, depth) in TOPICS.items() if topic in state_features:
             self._latest[topic] = None
             self.create_subscription(
@@ -48,17 +52,35 @@ class StateFormer(Node):
         self._latest[topic] = msg
 
         
-    def get_state(self, topic):
-        """ Turns latest state features into tensor of state features. """
-        state = {}
-        for topic in self._latest.keys():
-            state[topic] = tensify_dispatcher[topic](self._latest[topic])
-            
-        return state
+    def get_state(self):
+        """ Turns latest topics into state features, depending on the state_type of self. """
+        return form_dispatcher[self.state_type](self._latest)
 
     def state_shape(self):
         return None # should be the shape needed to initialize the policy/actor network
-        
+
+def detect_trees(topics):
+    raw_image = topics['/player/image_raw']
+    bounding_boxes = get_boxes(raw_image)
+    centers = get_centers(bounding_boxes)
+    depths = get_depths(centers)
+    tree_positions = get_positions(depths)
+    filtered_positions = filter_positions(tree_positions)
+    
+    player_position = None          # somehow get player position
+    
+    # state <-- concatenate player_position and filtered_tree_positions
+    
+    return state
+
+def just_image(topics):
+    try:
+
+        rgb = bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8')
+    except CvBridgeError as e:
+        raise RuntimeError(f'cv_bridge failed: {e}')
+
+    return rgb
 
 def img_msg_to_tensor(msg, resize=(84, 84)):
     """
