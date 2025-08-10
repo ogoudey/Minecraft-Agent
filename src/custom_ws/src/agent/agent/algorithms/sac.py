@@ -14,7 +14,7 @@ import numpy as np
 
 
 class Policy(nn.Module):
-    def __init__(self, obs_shape=(3, 64, 64), act_dim=6):
+    def __init__(self, input_dim, act_dim=6):
         super().__init__()
 
     @torch.no_grad()

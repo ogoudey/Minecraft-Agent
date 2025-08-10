@@ -9,7 +9,7 @@ A Policy class must implement act(), which returns what is consistent with the a
 """
 
 class Policy(nn.Module):
-    def __init__(self, n_actions=10):
+    def __init__(self, n_state=None, n_actions=10):
         super().__init__()
         self.backbone = nn.Sequential(
             nn.Conv2d(3, 32, 8, 4), nn.ReLU(),

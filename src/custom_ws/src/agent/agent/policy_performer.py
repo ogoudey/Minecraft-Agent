@@ -143,64 +143,12 @@ class Performer(Node):
             future = self.dig_cli.call_async(DigBlock.Request(timeout=2.0))
         self.publisher.publish(msg)
         return future
-        
+    
+    def action_shape(self):
+        return 10
+     
     def halt_performance(self):
         self.publisher.publish(Twist())
-
-"""
-def test(checkpoint):
-    rclpy.init()
-    node = Performer()
-    state_former = stateformer.StateFormer()
-    rewarder = command.Rewarder()
-    exec_ = MultiThreadedExecutor()
-    exec_.add_node(state_former)
-    exec_.add_node(rewarder)
-
-    t = threading.Thread(target=exec_.spin, daemon=True)
-    t.start()
-    
-    policy = rl.RGBPolicy()    
-    # Load policy checkpoint
-
-    print(f"Loading checkpoint from: {checkpoint}")
-    state_dict = torch.load(checkpoint) # , map_location=device
-    policy.load_state_dict(state_dict)
-    print("Checkpoint loaded successfully.")
-    
-    len_episode = 500
-    command.reset_learner()
-    state = state_former.get_state('/player/image_raw')
-    
-    for step in range(0, len_episode):
-            with torch.no_grad():
-                act_idx, logp, val = policy.act(state)
-            
-            #future = node.perform(action)
-            future = node.perform(one_hot(act_idx.item()))
-            rclpy.spin_once(node, timeout_sec=0.01)
-            if future and not future.done():
-                rclpy.spin_until_future_complete(node, future)
-            
-                           
-            state = state_former.get_state('/player/image_raw')
-            
-            reward = rewarder.give()
-            if reward > 0:
-                print("Hurray! (Giving server some time)")
-                break
-"""
-
-def plot(plot_topics):
-    for plot_topic in plot_topics:
-        plt.figure()
-        plt.plot(plot_topic)
-        plt.xlabel("Episode")
-        plt.ylabel("Cumulative Reward") # uhh - how to do this?
-        plt.title("Training Progress")
-        plt.grid(True)
-        plt.savefig("reward_plot.png")  # Optional: save to disk
-        plt.show()
 
 
 dispatch_dict = {
@@ -214,15 +162,24 @@ dispatch_dict = {
     }
 }
 
-def teleop(checkpoint=None, replay_buffer=None, algorithm="ppo", t_iterations=10, iterations=10):
+ignition = 
+
+# Parameters #
+algorithm = "sac"
+state_features = ("/player/image_raw")
+# End parameters
+def generalized_train(checkpoint=None, replay_buffer=None, t_iterations=10, iterations=10):
     rclpy.init()
     
     performer = Performer()
-    state_former = stateformer.StateFormer()
+    state_former = stateformer.StateFormer(state_features=state_features)
     rewarder = command.Rewarder()
     exec_ = MultiThreadedExecutor()
     exec_.add_node(state_former)
     exec_.add_node(rewarder)
+    # add performer?
+    
+    
     if t_iterations > 0:
         kbi = KeyboardInput()
         exec_.add_node(kbi)
@@ -235,7 +192,7 @@ def teleop(checkpoint=None, replay_buffer=None, algorithm="ppo", t_iterations=10
     trainer = dispatches["trainer"]()
     module = dispatches["module"]
 
-    policy = module.Policy()
+    policy = module.Policy(state_former.state_shape(), performer.action_shape()) # Must agree with state_former (assuming it does)
     nodes = (state_former, performer, rewarder, command)
     trainer.train(policy, checkpoint, replay_buffer, nodes)
     
@@ -249,7 +206,7 @@ def teleop(checkpoint=None, replay_buffer=None, algorithm="ppo", t_iterations=10
              
     exec_.shutdown()
     state_former.destroy_node()    
-    node.destroy_node()
+    performer.destroy_node()
     rclpy.shutdown()
 
 def just_keys():
@@ -262,12 +219,8 @@ def just_keys():
     t = threading.Thread(target=exec_.spin, daemon=True)
     t.start()
     
-    
     command.reset_learner()
     time.sleep(1)
-    
-    
-    
     
     while True:
         kbi.just_input()
@@ -286,8 +239,6 @@ if __name__ == '__main__':
                         help='Path to a saved policy checkpoint (.pth)')
     parser.add_argument('--replay_buffer', type=str, default=None,
                         help='Path to a saved replay buffer (not fully implemented)')
-    parser.add_argument('--a', type=str, default="ppo",
-                        help='Algorithm (ppo or sac)')
     
     parser.add_argument('--test', action='store_true',
                         help='Test policy (provide --checkpoint <checkpoint>)')
@@ -299,4 +250,4 @@ if __name__ == '__main__':
     if args.test:
         test(checkpoint=args.checkpoint)
     else:
-        teleop(checkpoint=args.checkpoint, replay_buffer=args.replay_buffer, algorithm=args.a, t_iterations=args.t, iterations=args.i)
+        teleop(checkpoint=args.checkpoint, replay_buffer=args.replay_buffer, t_iterations=args.t, iterations=args.i)

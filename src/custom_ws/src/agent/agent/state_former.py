@@ -21,15 +21,22 @@ TOPICS = {
     '/tf'                 : (TFMessage,       50),
 }
 
+tensify_dispatcher = {
+    '/player/image_raw'   : img_msg_to_tensor,
+    '/player/pointcloud'  : None,
+}
+
 
 class StateFormer(Node):
-    def __init__(self):
+    def __init__(self, state_features):
         super().__init__('state_former')
 
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
 
         self._latest = {}          # topic → ROS message (or None)
-        for topic, (msg_type, depth) in TOPICS.items():
+        
+        self.state_features = state_features
+        for topic, (msg_type, depth) in TOPICS.items() if topic in state_features:
             self._latest[topic] = None
             self.create_subscription(
                 msg_type, topic,
@@ -42,8 +49,15 @@ class StateFormer(Node):
 
         
     def get_state(self, topic):
-        return img_msg_to_tensor(self._latest[topic])
-        return {k: self._latest.get(k) for k in keys}
+        """ Turns latest state features into tensor of state features. """
+        state = {}
+        for topic in self._latest.keys():
+            state[topic] = tensify_dispatcher[topic](self._latest[topic])
+            
+        return state
+
+    def state_shape(self):
+        return None # should be the shape needed to initialize the policy/actor network
         
 
 def img_msg_to_tensor(msg, resize=(84, 84)):

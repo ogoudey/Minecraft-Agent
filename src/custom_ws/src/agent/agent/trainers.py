@@ -138,11 +138,9 @@ class SAC_Trainer:
             future = None
             done = False
             cumulative_reward = 0
-            #############
-            #  ROLLOUT  #
-            #############
+
             buffer = []
-            state = state_former.get_state('/player/image_raw')
+            state = state_former.get_state()
         
             for step in tqdm(range(1, len_episode)):
                 print(f'Step: {step}', end='\r', flush=True)
