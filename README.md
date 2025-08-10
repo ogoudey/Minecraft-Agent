@@ -7,25 +7,25 @@ This repo introduces three executable ROS nodes: the Rewarder, StateFormer, and 
 ```
 # clone this repo
 git clone https://github.com/ogoudey/Minecraft-Agent.git
-
+```
+Next get the minecraft-ROS mod. The following fork of the original is bug-free and suffices.
+```
 cd Minecraft-Agent
-
-# clone the (edit: bug-free fork of the original) minecraft_ros2 repo
 git clone https://github.com/ogoudey/minecraft_ros2
-
+```
+Now start up the container.
+```
 cd minecraft_ros2
-xhost +local:root         # for GUI permissions for docker
-docker compose up         # build the container
-
-# in another terminal
+sudo xhost +local:root         # for GUI permissions for docker
+sudo docker compose up         # build the container
+```
+Once the container is up, in another terminal:
+```
+cd Minecraft-Agent
 ./copy_scripts.sh         # puts custom code in the container
-
-
 ./bash.sh                 # shortcut for entering the running container
-
 . quickstart.sh           # sources all the ROS workspaces, makes Python venv and moves cwd to the custom ROS workspace
 ```
-
 
 # Running
 ## Testing performance
@@ -40,10 +40,10 @@ Then open up a Minecraft world.
 2. In another terminal:
 ```
 cd Minecraft
-./bash.sh # now you're in the container
+./bash.sh
 . quick_start.sh
 ```
-
+3. With the container's environments sourced, run a testing script.
 ```
 ros2 run agent keys
 ```
